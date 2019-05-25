@@ -37,7 +37,8 @@ export default class RNPickerSelect extends PureComponent {
         itemKey: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
         style: PropTypes.shape({}),
         children: PropTypes.any, // eslint-disable-line react/forbid-prop-types
-        placeholderTextColor: ColorPropType, // deprecated
+        hideIcon: PropTypes.bool,
+        placeholderTextColor: ColorPropType,
         useNativeAndroidPickerStyle: PropTypes.bool,
 
         // Custom Modal props (iOS only)
@@ -57,9 +58,6 @@ export default class RNPickerSelect extends PureComponent {
 
         // Picker props
         pickerProps: PropTypes.shape({}),
-
-        // Custom Icon
-        Icon: PropTypes.func,
     };
 
     static defaultProps = {
@@ -73,7 +71,8 @@ export default class RNPickerSelect extends PureComponent {
         itemKey: null,
         style: {},
         children: null,
-        placeholderTextColor: '#C7C7CD', // deprecated
+        hideIcon: false,
+        placeholderTextColor: '#C7C7CD',
         useNativeAndroidPickerStyle: true,
         hideDoneBar: false,
         doneText: 'Done',
@@ -85,7 +84,6 @@ export default class RNPickerSelect extends PureComponent {
         modalProps: {},
         textInputProps: {},
         pickerProps: {},
-        Icon: null,
     };
 
     static handlePlaceholder({ placeholder }) {
@@ -112,14 +110,9 @@ export default class RNPickerSelect extends PureComponent {
     }
     
     static getDerivedStateFromProps(nextProps, prevState) {
-        // update items if items or placeholder prop changes
-        const items = RNPickerSelect.handlePlaceholder({
-            placeholder: nextProps.placeholder,
-
+         const newItems = RNPickerSelect.handlePlaceholder({
+          placeholder: nextProps.placeholder
         }).concat(nextProps.items);
-        const itemsChanged = !isEqual(prevState.items, items);
-
-        // update selectedItem if value prop is defined and differs from currently selected item
         const { selectedItem, idx } = RNPickerSelect.getSelectedItem({
           items: newItems,
           key: nextProps.itemKey,
@@ -185,13 +178,11 @@ export default class RNPickerSelect extends PureComponent {
     }
 
     getPlaceholderStyle() {
-        const { placeholder, placeholderTextColor, style } = this.props;
+        const { placeholder, placeholderTextColor } = this.props;
 
         if (!isEqual(placeholder, {}) && this.state.selectedItem.label === placeholder.label) {
             return {
-                ...defaultStyles.placeholder,
-                color: placeholderTextColor, // deprecated
-                ...style.placeholder,
+                color: placeholderTextColor,
             };
         }
         return {};
@@ -269,6 +260,7 @@ export default class RNPickerSelect extends PureComponent {
                             ]}
                         />
                     </TouchableOpacity>
+                    <View style={{ marginHorizontal: 10 }} />
                     <TouchableOpacity
                         activeOpacity={onDownArrow ? 0.5 : 1}
                         onPress={onDownArrow ? this.onDownArrow : null}
@@ -293,7 +285,7 @@ export default class RNPickerSelect extends PureComponent {
                             onDonePress();
                         }
                     }}
-                    hitSlop={{ top: 4, right: 4, bottom: 4, left: 4 }}
+                    hitSlop={{ top: 2, right: 2, bottom: 2, left: 2 }}
                     testID="done_button"
                 >
                     <View testID="needed_for_touchable">
@@ -305,24 +297,17 @@ export default class RNPickerSelect extends PureComponent {
     }
 
     renderIcon() {
-        const { style, Icon } = this.props;
+        const { hideIcon, style } = this.props;
 
-        if (!Icon) {
+        if (hideIcon) {
             return null;
         }
 
-        return (
-            <View
-                testID="icon_container"
-                style={[defaultStyles.iconContainer, style.iconContainer]}
-            >
-                <Icon testID="icon" />
-            </View>
-        );
+        return <View testID="icon_ios" style={[defaultStyles.icon, style.icon]} />;
     }
 
     renderTextInputOrChildren() {
-        const { children, style, textInputProps } = this.props;
+        const { children, hideIcon, style, textInputProps } = this.props;
         const containerStyle =
             Platform.OS === 'ios' ? style.inputIOSContainer : style.inputAndroidContainer;
 
@@ -333,11 +318,11 @@ export default class RNPickerSelect extends PureComponent {
                 </View>
             );
         }
-
         return (
             <View pointerEvents="box-only" style={containerStyle}>
                 <TextInput
                     style={[
+                        !hideIcon ? { paddingRight: 30 } : {},
                         Platform.OS === 'ios' ? style.inputIOS : style.inputAndroid,
                         this.getPlaceholderStyle(),
                     ]}
@@ -366,7 +351,7 @@ export default class RNPickerSelect extends PureComponent {
                     {this.renderTextInputOrChildren()}
                 </TouchableWithoutFeedback>
                 <Modal
-                    testID="ios_modal"
+                    testID="RNPickerSelectModal"
                     visible={this.state.showPicker}
                     transparent
                     animationType={this.state.animationType}
@@ -376,7 +361,6 @@ export default class RNPickerSelect extends PureComponent {
                 >
                     <TouchableOpacity
                         style={[defaultStyles.modalViewTop, style.modalViewTop]}
-                        testID="ios_modal_top"
                         onPress={() => {
                             this.togglePicker(true);
                         }}
@@ -384,7 +368,7 @@ export default class RNPickerSelect extends PureComponent {
                     {this.renderDoneBar()}
                     <View style={[defaultStyles.modalViewBottom, style.modalViewBottom]}>
                         <Picker
-                            testID="ios_picker"
+                            testID="RNPickerSelectIOS"
                             onValueChange={this.onValueChange}
                             selectedValue={this.state.selectedItem.value}
                             {...pickerProps}
@@ -398,18 +382,13 @@ export default class RNPickerSelect extends PureComponent {
     }
 
     renderAndroidHeadless() {
-        const { disabled, Icon, style, pickerProps } = this.props;
-
+        const { disabled, style, pickerProps } = this.props;
         return (
-            <View style={style.headlessAndroidContainer}>
+            <View style={[{ borderWidth: 0 }, style.headlessAndroidContainer]}>
                 {this.renderTextInputOrChildren()}
                 <Picker
-                    style={[
-                        Icon ? { backgroundColor: 'transparent' } : {}, // to hide native icon
-                        defaultStyles.headlessAndroidPicker,
-                        style.headlessAndroidPicker,
-                    ]}
-                    testID="android_picker_headless"
+                    style={[defaultStyles.headlessAndroidPicker, style.headlessAndroidPicker]}
+                    testID="RNPickerSelectAndroidHeadless"
                     enabled={!disabled}
                     onValueChange={this.onValueChange}
                     selectedValue={this.state.selectedItem.value}
@@ -421,42 +400,51 @@ export default class RNPickerSelect extends PureComponent {
         );
     }
 
-    renderAndroidNativePickerStyle() {
-        const { disabled, Icon, style, pickerProps } = this.props;
+    renderAndroid() {
+        const {
+            children,
+            disabled,
+            hideIcon,
+            style,
+            pickerProps,
+            useNativeAndroidPickerStyle,
+        } = this.props;
+
+        if (children) {
+            return this.renderAndroidHeadless();
+        }
+
+        if (useNativeAndroidPickerStyle) {
+            return (
+                <View style={[defaultStyles.viewContainer, style.viewContainer]}>
+                    <Picker
+                        style={[
+                            hideIcon ? { backgroundColor: 'transparent' } : {},
+                            style.inputAndroid,
+                            this.getPlaceholderStyle(),
+                        ]}
+                        testID="RNPickerSelectAndroid"
+                        enabled={!disabled}
+                        onValueChange={this.onValueChange}
+                        selectedValue={this.state.selectedItem.value}
+                        {...pickerProps}
+                    >
+                        {this.renderPickerItems()}
+                    </Picker>
+                    <View style={[defaultStyles.underline, style.underline]} />
+                </View>
+            );
+        }
 
         return (
             <View style={[defaultStyles.viewContainer, style.viewContainer]}>
-                <Picker
-                    style={[
-                        Icon ? { backgroundColor: 'transparent' } : {}, // to hide native icon
-                        style.inputAndroid,
-                        this.getPlaceholderStyle(),
-                    ]}
-                    testID="android_picker"
-                    enabled={!disabled}
-                    onValueChange={this.onValueChange}
-                    selectedValue={this.state.selectedItem.value}
-                    {...pickerProps}
-                >
-                    {this.renderPickerItems()}
-                </Picker>
-                {this.renderIcon()}
+                {this.renderAndroidHeadless()}
             </View>
         );
     }
 
     render() {
-        const { children, useNativeAndroidPickerStyle } = this.props;
-
-        if (Platform.OS === 'ios') {
-            return this.renderIOS();
-        }
-
-        if (children || !useNativeAndroidPickerStyle) {
-            return this.renderAndroidHeadless();
-        }
-
-        return this.renderAndroidNativePickerStyle();
+        return Platform.OS === 'ios' ? this.renderIOS() : this.renderAndroid();
     }
 }
 
@@ -464,65 +452,77 @@ const defaultStyles = StyleSheet.create({
     viewContainer: {
         alignSelf: 'stretch',
     },
-    iconContainer: {
+    chevronContainer: {
+        flex: 1,
+        flexDirection: 'row',
+        marginLeft: 15,
+    },
+    chevron: {
+        width: 15,
+        height: 15,
+        backgroundColor: 'transparent',
+        borderTopWidth: 1.5,
+        borderTopColor: '#D0D4DB',
+        borderRightWidth: 1.5,
+        borderRightColor: '#D0D4DB',
+    },
+    chevronUp: {
+        transform: [{ translateY: 17 }, { rotate: '-45deg' }],
+    },
+    chevronDown: {
+        transform: [{ translateY: 8 }, { rotate: '135deg' }],
+    },
+    chevronActive: {
+        borderTopColor: '#007AFE',
+        borderRightColor: '#007AFE',
+    },
+    icon: {
         position: 'absolute',
-        right: 0,
+        backgroundColor: 'transparent',
+        borderTopWidth: 10,
+        borderTopColor: 'gray',
+        borderRightWidth: 10,
+        borderRightColor: 'transparent',
+        borderLeftWidth: 10,
+        borderLeftColor: 'transparent',
+        width: 0,
+        height: 0,
+        top: 20,
+        right: 10,
     },
     modalViewTop: {
         flex: 1,
     },
     modalViewMiddle: {
         height: 44,
+        zIndex: 2,
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 10,
         backgroundColor: '#EFF1F2',
         borderTopWidth: 0.5,
         borderTopColor: '#919498',
-    },
-    chevronContainer: {
-        flexDirection: 'row',
-    },
-    chevron: {
-        width: 15,
-        height: 15,
-        backgroundColor: 'transparent',
-        borderColor: '#D0D4DB',
-        borderTopWidth: 1.5,
-        borderRightWidth: 1.5,
-    },
-    chevronUp: {
-        marginLeft: 11,
-        transform: [{ translateY: 4 }, { rotate: '-45deg' }],
-    },
-    chevronDown: {
-        marginLeft: 22,
-        transform: [{ translateY: -5 }, { rotate: '135deg' }],
-    },
-    chevronActive: {
-        borderColor: '#007AFE',
-    },
-    done: {
-        color: '#007AFE',
-        fontWeight: 'bold',
-        fontSize: 15,
-        paddingTop: 1,
-        paddingRight: 2,
     },
     modalViewBottom: {
         height: 215,
         justifyContent: 'center',
         backgroundColor: '#D0D4DB',
     },
-    placeholder: {
-        color: '#C7C7CD',
+    done: {
+        color: '#007AFE',
+        fontWeight: 'bold',
+        padding: 10,
+        fontSize: 18,
+    },
+    underline: {
+        borderTopWidth: 1,
+        borderTopColor: '#888988',
+        marginHorizontal: 4,
     },
     headlessAndroidPicker: {
         position: 'absolute',
-        width: '100%',
-        height: '100%',
+        top: 0,
+        width: 1000,
+        height: 1000,
         color: 'transparent',
-        opacity: 0,
     },
 });
